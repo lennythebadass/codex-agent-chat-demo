@@ -1,7 +1,6 @@
 "use client";
 
-import { ArtifactPanel } from "@/components/demo/artifact-panel";
-import { ElementBadge, PreviewThumb } from "@/components/demo/shared";
+import { ElementBadge } from "@/components/demo/shared";
 import {
   Conversation,
   ConversationContent,
@@ -33,7 +32,6 @@ import {
   baseWorkSteps,
   finalAssistantMarkdown,
   initialUserMessage,
-  type ArtifactMode,
   type WorkStep,
 } from "@/lib/mock-agent-chat-data";
 import {
@@ -46,12 +44,9 @@ import {
   Code2Icon,
   FileSearchIcon,
   InfoIcon,
-  LayoutPanelTopIcon,
   MicIcon,
   MoreHorizontalIcon,
-  PanelRightIcon,
   PaperclipIcon,
-  PlayIcon,
   RefreshCwIcon,
   SendIcon,
   ShieldIcon,
@@ -69,8 +64,6 @@ const stepIcons: Record<WorkStep["icon"], LucideIcon> = {
   code: Code2Icon,
   "file-search": FileSearchIcon,
   info: InfoIcon,
-  "layout-panel": LayoutPanelTopIcon,
-  play: PlayIcon,
   refresh: RefreshCwIcon,
   send: SendIcon,
   terminal: SquareTerminalIcon,
@@ -78,8 +71,6 @@ const stepIcons: Record<WorkStep["icon"], LucideIcon> = {
 };
 
 export function AgentChat() {
-  const [artifactMode, setArtifactMode] = useState<ArtifactMode>("map");
-  const [artifactOpen, setArtifactOpen] = useState(false);
   const [dynamicSteps, setDynamicSteps] = useState<WorkStep[]>([]);
   const [expandedStepIds, setExpandedStepIds] = useState<Set<string>>(
     () => new Set(["quiet-tools"])
@@ -96,11 +87,6 @@ export function AgentChat() {
     () => [...baseWorkSteps, ...dynamicSteps],
     [dynamicSteps]
   );
-
-  const openArtifact = useCallback((mode: ArtifactMode) => {
-    setArtifactMode(mode);
-    setArtifactOpen(true);
-  }, []);
 
   const replayStream = useCallback(() => {
     setStreamedMarkdown("");
@@ -132,24 +118,23 @@ export function AgentChat() {
         ...current,
         {
           id,
-          text: `收到新的跟进：“${trimmed}”。我把它作为 mock agent step 追加到 transcript，并把右侧 Artifact 切到终端状态，模拟 Codex 正在继续处理。`,
+          text: `收到新的跟进：“${trimmed}”。我把它作为 mock agent step 追加到 transcript，模拟 Codex 正在继续处理。`,
           tool: "Queued mock follow-up action",
           detail:
             "这个提交不会调用真实模型，但会更新页面状态，证明 composer 已经接入交互流。",
           command: "mock-agent enqueue follow-up",
           output: `queued: ${trimmed}`,
-          patch: "+ appended user follow-up\n+ appended agent step\n+ opened terminal artifact",
+          patch: "+ appended user follow-up\n+ appended agent step",
           files: ["src/components/demo/agent-chat.tsx"],
           icon: "bot",
           status: "complete",
         },
       ]);
       setExpandedStepIds((current) => new Set(current).add(id));
-      openArtifact("terminal");
       setSubmitStatus("submitted");
       window.setTimeout(() => setSubmitStatus("ready"), 650);
     },
-    [openArtifact]
+    []
   );
 
   useEffect(() => {
@@ -172,12 +157,7 @@ export function AgentChat() {
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#090909]">
-      <ChatHeader
-        artifactMode={artifactMode}
-        artifactOpen={artifactOpen}
-        onOpenArtifact={openArtifact}
-        onSetArtifactOpen={setArtifactOpen}
-      />
+      <ChatHeader />
 
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -225,20 +205,6 @@ export function AgentChat() {
                         step={step}
                       />
                     ))}
-                  </div>
-
-                  <div className="mt-8 flex items-end gap-3">
-                    <PreviewThumb />
-                    <PreviewThumb compact />
-                    <Button
-                      className="mb-2 size-8 rounded-full border-neutral-800 bg-neutral-900 text-neutral-400 hover:bg-neutral-800"
-                      onClick={() => openArtifact("preview")}
-                      size="icon"
-                      type="button"
-                      variant="outline"
-                    >
-                      <ArrowDownIcon className="size-4" />
-                    </Button>
                   </div>
                 </>
               ) : null}
@@ -335,40 +301,12 @@ export function AgentChat() {
             </PromptInput>
           </div>
         </div>
-
-        {artifactOpen ? (
-          <ArtifactPanel
-            mode={artifactMode}
-            onClose={() => setArtifactOpen(false)}
-            onModeChange={openArtifact}
-            onReplay={replayStream}
-          />
-        ) : (
-          <button
-            className="my-3 mr-3 flex h-[calc(100%-1.5rem)] w-9 shrink-0 items-start justify-center rounded-lg border border-neutral-800 bg-neutral-950/40 pt-3 text-neutral-500 transition hover:bg-neutral-900 hover:text-neutral-200"
-            onClick={() => openArtifact("map")}
-            type="button"
-          >
-            <PanelRightIcon className="size-4" />
-            <span className="sr-only">Open Artifact panel</span>
-          </button>
-        )}
       </div>
     </section>
   );
 }
 
-function ChatHeader({
-  artifactMode,
-  artifactOpen,
-  onOpenArtifact,
-  onSetArtifactOpen,
-}: {
-  artifactMode: ArtifactMode;
-  artifactOpen: boolean;
-  onOpenArtifact: (mode: ArtifactMode) => void;
-  onSetArtifactOpen: (open: boolean) => void;
-}) {
+function ChatHeader() {
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-3 px-5">
       <div className="flex min-w-0 items-center gap-2">
@@ -383,62 +321,6 @@ function ChatHeader({
           variant="ghost"
         >
           <MoreHorizontalIcon className="size-4" />
-        </Button>
-      </div>
-      <div className="flex shrink-0 items-center gap-1.5 text-neutral-500">
-        <Button
-          className="h-7 gap-1.5 border-neutral-800 bg-neutral-900 px-2 text-neutral-300 hover:bg-neutral-800"
-          onClick={() => onOpenArtifact("preview")}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <PlayIcon className="size-3.5" />
-          <span className="hidden text-[12px] md:inline">Run Preview</span>
-        </Button>
-        <Button
-          className="h-7 gap-1.5 border-neutral-800 bg-neutral-900 px-2 text-neutral-300 hover:bg-neutral-800"
-          onClick={() => onOpenArtifact("vscode")}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <Code2Icon className="size-3.5 text-blue-400" />
-          <span className="hidden text-[12px] md:inline">VS Code</span>
-        </Button>
-        <Button
-          className="size-7 text-neutral-500 hover:bg-neutral-900 hover:text-neutral-200"
-          onClick={() => onOpenArtifact("terminal")}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <SquareTerminalIcon className="size-4" />
-          <span className="sr-only">Terminal</span>
-        </Button>
-        <Button
-          className="size-7 text-neutral-500 hover:bg-neutral-900 hover:text-neutral-200"
-          onClick={() => onOpenArtifact("info")}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <InfoIcon className="size-4" />
-          <span className="sr-only">Info</span>
-        </Button>
-        <Button
-          className="size-7 text-neutral-500 hover:bg-neutral-900 hover:text-neutral-200"
-          onClick={() =>
-            artifactOpen && artifactMode === "map"
-              ? onSetArtifactOpen(false)
-              : onOpenArtifact("map")
-          }
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <PanelRightIcon className="size-4" />
-          <span className="sr-only">Panel</span>
         </Button>
       </div>
     </header>

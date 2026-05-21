@@ -85,7 +85,7 @@ export function DemoSidebar({ projects }: { projects: Project[] }) {
           className="flex h-8 w-full items-center rounded-md px-2 text-left text-[13px] text-neutral-400 hover:bg-white/[0.045] hover:text-neutral-200"
           type="button"
         >
-          Build Artifact demo
+          Build chat demo
         </button>
         <button
           className="flex h-8 w-full items-center rounded-md px-2 text-left text-[13px] text-neutral-400 hover:bg-white/[0.045] hover:text-neutral-200"
