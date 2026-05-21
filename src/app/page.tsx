@@ -1,15 +1,6 @@
 "use client";
 
 import {
-  Artifact,
-  ArtifactAction,
-  ArtifactActions,
-  ArtifactContent,
-  ArtifactDescription,
-  ArtifactHeader,
-  ArtifactTitle,
-} from "@/components/ai-elements/artifact";
-import {
   CodeBlock,
   CodeBlockCopyButton,
   CodeBlockFilename,
@@ -21,11 +12,6 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import {
-  FileTree,
-  FileTreeFile,
-  FileTreeFolder,
-} from "@/components/ai-elements/file-tree";
 import {
   Message,
   MessageContent,
@@ -57,41 +43,21 @@ import {
   TaskTrigger,
 } from "@/components/ai-elements/task";
 import { Tool, ToolContent, ToolHeader } from "@/components/ai-elements/tool";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  ArchiveIcon,
   BadgeCheckIcon,
-  BellIcon,
   BotIcon,
-  BoxesIcon,
   CheckCircle2Icon,
-  ChevronRightIcon,
-  CircleDotIcon,
-  Clock3Icon,
-  Code2Icon,
-  CopyIcon,
   FileCode2Icon,
   FileDiffIcon,
   GitBranchIcon,
-  GitCommitHorizontalIcon,
-  GitPullRequestArrowIcon,
-  HardDriveIcon,
-  HistoryIcon,
   Layers2Icon,
-  ListChecksIcon,
-  LockIcon,
-  MoreHorizontalIcon,
-  PanelRightIcon,
   PaperclipIcon,
-  PlayIcon,
   PlusIcon,
   RefreshCcwIcon,
-  SearchIcon,
   SendHorizontalIcon,
-  Settings2Icon,
   ShieldCheckIcon,
-  SparklesIcon,
-  SplitIcon,
   SquareTerminalIcon,
   TimerResetIcon,
 } from "lucide-react";
@@ -99,58 +65,46 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 const FINAL_RESPONSE = `## Implementation summary
 
-The Codex App chat demo now behaves like a focused coding-agent workspace:
+The demo now presents Codex as a focused light-theme agent chat:
 
-- Added a dark desktop shell with a project rail, session list, model/branch badges, and running status.
-- Built an autonomous agent timeline with planning, file inspection, patching, terminal output, and a final streamed answer.
-- Rendered file context beside the conversation with a selectable tree and code/diff preview.
-- Wired mock controls for replaying the stream and approving the queued command.
+- The app shell is locked to the viewport.
+- The conversation is the only scrolling region.
+- The workspace panel was removed so the experience stays on the sidebar and chat.
+- The final response continues to stream through Streamdown.
 
 \`\`\`tsx
-<MessageResponse isAnimating={isStreaming}>
-  {streamedMarkdown}
-</MessageResponse>
+<Conversation className="min-h-0 flex-1 overflow-hidden">
+  <ConversationContent scrollClassName="overflow-y-auto overflow-x-hidden" />
+</Conversation>
 \`\`\`
 
-- [x] Use AI Elements for conversation, messages, prompt input, reasoning, tools, tasks, code, file tree, and artifact panel.
-- [x] Show Streamdown markdown while the final assistant response animates.
-- [x] Keep the experience mocked and frontend-only.
-- [ ] Connect to a real Codex agent runtime.
+- [x] Use AI Elements for conversation, messages, reasoning, tasks, tools, code, and prompt input.
+- [x] Render Markdown with heading, list, code, checklist, and table content.
+- [ ] Connect the mocked timeline to a real Codex runtime.
 
-| Area | Status | Notes |
+| Area | Result | Notes |
 | --- | --- | --- |
-| Timeline | Complete | Dense agent events with collapsible details |
-| Streaming | Running | Character chunks feed Streamdown |
-| Approval | Mocked | Toggle switches queued/running/completed states |
-| Files | Complete | Tree, diff, and command output are visible |
+| Layout | Complete | Two columns, no page overflow |
+| Theme | Complete | shadcn semantic colors on Geist |
+| Streaming | Running | Replay restarts the response |
 `;
 
 const DIFF_CODE = `diff --git a/src/app/page.tsx b/src/app/page.tsx
-index 0f15a2b..a9d03ee 100644
 --- a/src/app/page.tsx
 +++ b/src/app/page.tsx
-@@ -1,16 +1,42 @@
--export default function Home() {
--  return <main>Start here</main>;
--}
-+"use client";
-+
-+export default function Home() {
-+  return (
-+    <main className="grid min-h-screen grid-cols-[260px_1fr_360px]">
-+      <AgentRail />
-+      <AgentTimeline />
-+      <WorkspaceArtifact />
-+    </main>
-+  );
-+}`;
-
-const PAGE_SNIPPET = `const agentSteps = [
-  { label: "Read app scaffold", state: "done" },
-  { label: "Plan Codex-style shell", state: "done" },
-  { label: "Patch page.tsx", state: "running" },
-  { label: "Run production build", state: "queued" },
-];`;
+@@ -1,7 +1,13 @@
+-<main className="grid min-h-screen grid-cols-[260px_1fr_360px]">
+-  <AgentRail />
+-  <AgentTimeline />
+-  <WorkspaceArtifact />
++<main className="flex h-dvh w-dvw overflow-hidden">
++  <Sidebar />
++  <section className="min-h-0 min-w-0 flex-1 overflow-hidden">
++    <Header />
++    <Conversation />
++    <Composer />
++  </section>
+ </main>`;
 
 const TERMINAL_OUTPUT = `$ npm run build
 
@@ -158,37 +112,19 @@ const TERMINAL_OUTPUT = `$ npm run build
 > next build
 
 ▲ Next.js 16.2.6
-✓ Compiled successfully in 3.1s
+✓ Compiled successfully
 ✓ Linting and checking validity of types
 ✓ Generating static pages`;
 
 const sessions = [
-  {
-    title: "Recreate Codex agent chat",
-    meta: "Running now",
-    active: true,
-  },
-  {
-    title: "Add approval state toggles",
-    meta: "18 min ago",
-    active: false,
-  },
-  {
-    title: "Inspect AI Elements APIs",
-    meta: "Yesterday",
-    active: false,
-  },
-  {
-    title: "Polish Streamdown response",
-    meta: "May 20",
-    active: false,
-  },
+  { title: "Revise chat shell", meta: "Running", active: true },
+  { title: "Review AI Elements", meta: "18 min ago", active: false },
+  { title: "Polish streaming", meta: "Yesterday", active: false },
 ];
 
 const branchStats = [
-  ["main", "clean"],
-  ["agent/chat-demo", "+1 file"],
-  ["gpt-5.5-codex", "high"],
+  ["agent/chat-demo", "branch"],
+  ["gpt-5.5-codex", "model"],
 ];
 
 const toolStates = {
@@ -202,16 +138,15 @@ export default function Home() {
     useState<keyof typeof toolStates>("pending");
   const [streamedMarkdown, setStreamedMarkdown] = useState("");
   const [isStreaming, setIsStreaming] = useState(true);
-  const [selectedPath, setSelectedPath] = useState("src/app/page.tsx");
 
   const approvalLabel = useMemo(() => {
     if (approvalState === "pending") {
-      return "Approve command";
+      return "Approve";
     }
     if (approvalState === "running") {
-      return "Mark complete";
+      return "Complete";
     }
-    return "Reset approval";
+    return "Reset";
   }, [approvalState]);
 
   const replayStream = useCallback(() => {
@@ -251,561 +186,322 @@ export default function Home() {
   }, [isStreaming]);
 
   return (
-    <main className="flex min-h-screen bg-[#080808] text-[#ededed]">
-      <aside className="hidden w-[276px] shrink-0 border-[#262626] border-r bg-[#0b0b0b] lg:flex lg:flex-col">
-        <div className="border-[#262626] border-b px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-md border border-[#303030] bg-[#151515]">
-                <SparklesIcon className="size-3.5 text-white" />
-              </div>
-              <div>
-                <p className="text-[13px] font-medium leading-none">Codex</p>
-                <p className="mt-1 text-[11px] text-[#8a8a8a]">Agent app</p>
-              </div>
+    <main className="flex h-dvh w-dvw overflow-hidden bg-background text-foreground">
+      <aside className="flex h-full w-[76px] shrink-0 flex-col overflow-hidden border-r bg-muted/30 sm:w-[236px]">
+        <div className="shrink-0 border-b p-3">
+          <div className="flex items-center gap-2">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">
+              <BotIcon className="size-4" />
             </div>
-            <Button
-              className="size-7 border-[#2a2a2a] bg-[#111] text-[#a1a1a1] hover:bg-[#1a1a1a] hover:text-white"
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <BellIcon className="size-3.5" />
-            </Button>
-          </div>
-
-          <div className="mt-4 rounded-md border border-[#252525] bg-[#111] p-2">
-            <div className="flex items-center gap-2 text-[#d6d6d6]">
-              <HardDriveIcon className="size-3.5 text-[#8a8a8a]" />
-              <span className="truncate text-[12px] font-medium">
-                codex-agent-chat-demo
-              </span>
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[#8a8a8a]">
-              <CircleDotIcon className="size-3 text-emerald-400" />
-              <span>repo indexed</span>
-              <span className="text-[#4a4a4a]">/</span>
-              <span>1 changed file</span>
+            <div className="hidden min-w-0 sm:block">
+              <p className="truncate text-sm font-semibold">Codex</p>
+              <p className="truncate text-xs text-muted-foreground">
+                Agent app
+              </p>
             </div>
           </div>
-        </div>
-
-        <div className="flex gap-2 border-[#262626] border-b p-3">
-          <Button
-            className="h-8 flex-1 justify-start border-[#2a2a2a] bg-[#111] px-2 text-[#cfcfcf] hover:bg-[#1a1a1a]"
-            type="button"
-            variant="outline"
-          >
-            <SearchIcon className="size-3.5" />
-            Search
-          </Button>
-          <Button
-            className="h-8 border-[#2a2a2a] bg-[#ededed] text-[#0a0a0a] hover:bg-white"
-            type="button"
-          >
-            <PlusIcon className="size-3.5" />
-            New
+          <Button className="mt-3 h-8 w-full justify-center sm:justify-start" type="button">
+            <PlusIcon className="size-4" />
+            <span className="hidden sm:inline">New task</span>
           </Button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
-          <div className="mb-2 flex items-center justify-between px-2">
-            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#6f6f6f]">
-              Recent sessions
-            </p>
-            <HistoryIcon className="size-3.5 text-[#6f6f6f]" />
-          </div>
+        <div className="shrink-0 border-b p-2">
+          <button
+            className="flex w-full min-w-0 items-center gap-2 rounded-md border bg-background px-2 py-2 text-left text-sm transition-colors hover:bg-accent"
+            type="button"
+          >
+            <span className="size-2 shrink-0 rounded-full bg-emerald-500" />
+            <span className="hidden min-w-0 truncate font-medium sm:block">
+              codex-agent-chat-demo
+            </span>
+          </button>
+        </div>
+
+        <nav className="min-h-0 flex-1 overflow-hidden p-2">
+          <p className="hidden px-2 pb-2 text-xs font-medium text-muted-foreground sm:block">
+            Recent
+          </p>
           <div className="space-y-1">
             {sessions.map((session) => (
               <button
                 className={[
-                  "w-full rounded-md border px-2.5 py-2 text-left transition-colors",
+                  "flex w-full min-w-0 items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
                   session.active
-                    ? "border-[#333] bg-[#171717] text-white"
-                    : "border-transparent text-[#b8b8b8] hover:bg-[#121212]",
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                 ].join(" ")}
                 key={session.title}
                 type="button"
               >
-                <div className="flex items-center gap-2">
-                  <BotIcon className="size-3.5 text-[#8a8a8a]" />
-                  <span className="truncate text-[12px] font-medium">
+                <BotIcon className="mt-0.5 size-4 shrink-0" />
+                <span className="hidden min-w-0 sm:block">
+                  <span className="block truncate font-medium">
                     {session.title}
                   </span>
-                </div>
-                <p className="mt-1 pl-5 text-[11px] text-[#7a7a7a]">
-                  {session.meta}
-                </p>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {session.meta}
+                  </span>
+                </span>
               </button>
             ))}
           </div>
         </nav>
-
-        <div className="border-[#262626] border-t p-3">
-          <div className="rounded-md border border-[#252525] bg-[#101010] p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[12px] text-[#dcdcdc]">
-                <ShieldCheckIcon className="size-3.5 text-emerald-400" />
-                Workspace trusted
-              </div>
-              <LockIcon className="size-3.5 text-[#6f6f6f]" />
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[#8a8a8a]">
-              <div className="rounded border border-[#232323] bg-[#0b0b0b] px-2 py-1.5">
-                tests queued
-              </div>
-              <div className="rounded border border-[#232323] bg-[#0b0b0b] px-2 py-1.5">
-                patch ready
-              </div>
-            </div>
-          </div>
-        </div>
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-[58px] shrink-0 items-center justify-between border-[#262626] border-b bg-[#0d0d0d]/95 px-3 sm:px-5">
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background px-3 sm:px-4">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-[14px] font-medium">
-                Recreate Codex App Agent Chat
-              </p>
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300">
-                <span className="size-1.5 rounded-full bg-emerald-400" />
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-sm font-semibold sm:text-base">
+                Revise Codex Agent Chat Demo
+              </h1>
+              <Badge className="gap-1.5 text-emerald-700" variant="secondary">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
                 Running
-              </span>
+              </Badge>
             </div>
-            <div className="mt-1 hidden items-center gap-1.5 text-[11px] text-[#8a8a8a] sm:flex">
+            <div className="mt-1 hidden min-w-0 items-center gap-1.5 sm:flex">
               {branchStats.map(([label, value]) => (
-                <span
-                  className="inline-flex items-center gap-1 rounded border border-[#252525] bg-[#111] px-1.5 py-0.5"
+                <Badge
+                  className="max-w-[180px] gap-1.5 truncate font-normal"
                   key={label}
+                  variant="outline"
                 >
                   <GitBranchIcon className="size-3" />
-                  {label}
-                  <span className="text-[#5f5f5f]">{value}</span>
-                </span>
+                  <span className="truncate">{label}</span>
+                  <span className="text-muted-foreground">{value}</span>
+                </Badge>
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              className="h-8 border-[#303030] bg-[#141414] px-2 text-[#dcdcdc] hover:bg-[#1d1d1d]"
-              onClick={replayStream}
-              type="button"
-              variant="outline"
-            >
-              <RefreshCcwIcon className="size-3.5" />
-              <span className="hidden sm:inline">Replay stream</span>
-            </Button>
-            <Button
-              className="size-8 border-[#303030] bg-[#141414] text-[#bdbdbd] hover:bg-[#1d1d1d]"
-              size="icon-sm"
-              type="button"
-              variant="outline"
-            >
-              <MoreHorizontalIcon className="size-4" />
-            </Button>
-          </div>
+          <Button
+            className="shrink-0"
+            onClick={replayStream}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <RefreshCcwIcon className="size-4" />
+            <span className="hidden sm:inline">Replay</span>
+          </Button>
         </header>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="flex min-h-0 flex-col border-[#262626] xl:border-r">
-            <Conversation className="min-h-0 bg-[#080808]">
-              <ConversationContent className="gap-5 px-3 py-5 sm:px-6">
-                <Message from="user" className="max-w-[860px]">
-                  <MessageContent className="rounded-lg border border-[#2b2b2b] bg-[#171717] px-4 py-3 text-[#ededed] shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
-                    <div className="mb-2 flex items-center gap-2 text-[11px] text-[#8a8a8a]">
-                      <span className="rounded border border-[#333] px-1.5 py-0.5 font-mono">
-                        USER
-                      </span>
-                      <span>Today, 14:36</span>
-                    </div>
-                    <p className="text-[14px] leading-6">
-                      Build a high-fidelity Codex App-style agent chat demo
-                      using AI Elements and Streamdown. Make the mocked agent
-                      timeline feel like real autonomous coding work.
-                    </p>
-                  </MessageContent>
-                </Message>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <Conversation className="min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+            <ConversationContent
+              className="mx-auto w-full max-w-4xl gap-5 px-3 py-5 pb-8 sm:px-6"
+              scrollClassName="overflow-y-auto overflow-x-hidden overscroll-contain"
+            >
+              <Message className="max-w-[760px]" from="user">
+                <MessageContent className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+                  <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="outline">USER</Badge>
+                    <span>Today, 14:36</span>
+                  </div>
+                  <p className="text-sm leading-6">
+                    Revise the demo so the shell never overflows, only the
+                    central conversation scrolls, the right workspace panel is
+                    gone, and the UI feels like a light shadcn/Geist app.
+                  </p>
+                </MessageContent>
+              </Message>
 
-                <Message from="assistant" className="max-w-[930px]">
-                  <MessageContent className="w-full gap-4">
-                    <div className="flex items-center gap-2 text-[11px] text-[#8a8a8a]">
-                      <span className="rounded border border-[#303030] bg-[#111] px-1.5 py-0.5 font-mono text-[#d6d6d6]">
-                        CODEX
-                      </span>
-                      <span>gpt-5.5-codex</span>
-                      <span className="text-[#454545]">/</span>
-                      <span>autonomous edit session</span>
-                    </div>
+              <Message className="max-w-[900px]" from="assistant">
+                <MessageContent className="w-full gap-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="outline">CODEX</Badge>
+                    <span>gpt-5.5-codex</span>
+                    <span>/</span>
+                    <span className="truncate">autonomous edit session</span>
+                  </div>
 
-                    <Reasoning
-                      className="rounded-md border border-[#262626] bg-[#101010] p-3"
-                      defaultOpen
-                      duration={7}
-                      isStreaming={isStreaming}
-                    >
-                      <ReasoningTrigger className="text-[#a9a9a9] hover:text-white" />
-                      <ReasoningContent className="prose prose-invert max-w-none text-[13px] text-[#a6a6a6]">
-                        {`I need to inspect the scaffold and installed components first, then build a single polished client-side page. The demo should prioritize visual fidelity: a dark desktop shell, compact agent timeline, collapsible work blocks, a file artifact surface, and visible Streamdown rendering during the final response.`}
-                      </ReasoningContent>
-                    </Reasoning>
+                  <Reasoning
+                    className="rounded-md border bg-card p-3"
+                    defaultOpen
+                    duration={7}
+                    isStreaming={isStreaming}
+                  >
+                    <ReasoningTrigger />
+                    <ReasoningContent>
+                      {`I need to constrain the root layout first, then simplify the shell to a sidebar and chat. The important risk is scroll ownership: the page, sidebar, header, and composer should stay fixed while the AI Elements conversation content owns vertical scrolling.`}
+                    </ReasoningContent>
+                  </Reasoning>
 
-                    <Task className="rounded-md border border-[#262626] bg-[#0f0f0f] p-3">
-                      <TaskTrigger
-                        className="text-[#ababab] hover:text-white"
-                        title="Plan implementation"
-                      />
-                      <TaskContent className="text-[#a9a9a9]">
-                        <TaskItem>
-                          Map page structure from{" "}
-                          <TaskItemFile className="border-[#303030] bg-[#171717] text-[#e5e5e5]">
-                            src/app/page.tsx
-                          </TaskItemFile>
-                        </TaskItem>
-                        <TaskItem>
-                          Verify AI Elements component APIs before use.
-                        </TaskItem>
-                        <TaskItem>
-                          Stream a Markdown summary through MessageResponse.
-                        </TaskItem>
-                      </TaskContent>
-                    </Task>
+                  <Task className="rounded-md border bg-card p-3">
+                    <TaskTrigger title="Plan implementation" />
+                    <TaskContent>
+                      <TaskItem>
+                        Replace the three-column dark shell in{" "}
+                        <TaskItemFile>src/app/page.tsx</TaskItemFile>.
+                      </TaskItem>
+                      <TaskItem>
+                        Keep AI Elements components in the mocked timeline.
+                      </TaskItem>
+                      <TaskItem>
+                        Lock root sizing and verify the production build.
+                      </TaskItem>
+                    </TaskContent>
+                  </Task>
 
-                    <Tool
-                      className="border-[#262626] bg-[#101010]"
-                      defaultOpen
-                    >
-                      <ToolHeader
-                        className="text-[#dadada]"
-                        state="output-available"
-                        title="Read files"
-                        toolName="read_file"
-                        type="dynamic-tool"
-                      />
-                      <ToolContent className="border-[#262626] border-t text-[#bdbdbd]">
-                        <div className="grid gap-2 text-[12px] sm:grid-cols-3">
-                          {[
-                            "src/app/page.tsx",
-                            "src/components/ai-elements/message.tsx",
-                            "src/components/ai-elements/prompt-input.tsx",
-                          ].map((file) => (
-                            <div
-                              className="flex items-center gap-2 rounded border border-[#252525] bg-[#0a0a0a] px-2 py-1.5 font-mono text-[#cfcfcf]"
-                              key={file}
-                            >
-                              <FileCode2Icon className="size-3.5 text-[#8a8a8a]" />
-                              <span className="truncate">{file}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </ToolContent>
-                    </Tool>
-
-                    <Tool
-                      className="border-[#262626] bg-[#101010]"
-                      defaultOpen={false}
-                    >
-                      <ToolHeader
-                        className="text-[#dadada]"
-                        state="output-available"
-                        title="Apply patch"
-                        toolName="apply_patch"
-                        type="dynamic-tool"
-                      />
-                      <ToolContent className="border-[#262626] border-t">
-                        <CodeBlock
-                          className="border-[#262626] bg-[#0b0b0b]"
-                          code={DIFF_CODE}
-                          language="diff"
-                          showLineNumbers
-                        >
-                          <CodeBlockHeader className="border-[#252525] bg-[#151515]">
-                            <CodeBlockTitle>
-                              <FileDiffIcon className="size-3.5" />
-                              <CodeBlockFilename>
-                                page.tsx.patch
-                              </CodeBlockFilename>
-                            </CodeBlockTitle>
-                            <CodeBlockCopyButton className="size-6 text-[#9a9a9a]" />
-                          </CodeBlockHeader>
-                        </CodeBlock>
-                      </ToolContent>
-                    </Tool>
-
-                    <Tool
-                      className="border-[#262626] bg-[#101010]"
-                      defaultOpen
-                    >
-                      <ToolHeader
-                        className="text-[#dadada]"
-                        state={toolStates[approvalState]}
-                        title="Run production build"
-                        toolName="shell"
-                        type="dynamic-tool"
-                      />
-                      <ToolContent className="border-[#262626] border-t">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 text-[12px] text-[#a9a9a9]">
-                            <SquareTerminalIcon className="size-4 text-[#8a8a8a]" />
-                            <code className="rounded border border-[#303030] bg-[#090909] px-2 py-1 text-[#dcdcdc]">
-                              npm run build
-                            </code>
-                          </div>
-                          <Button
-                            className={[
-                              "h-7 border px-2 text-[12px]",
-                              approvalState === "pending"
-                                ? "border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15"
-                                : "border-emerald-500/25 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15",
-                            ].join(" ")}
-                            onClick={cycleApproval}
-                            type="button"
-                            variant="outline"
+                  <Tool className="bg-card" defaultOpen>
+                    <ToolHeader
+                      state="output-available"
+                      title="Inspect installed UI"
+                      toolName="read_file"
+                      type="dynamic-tool"
+                    />
+                    <ToolContent className="border-t">
+                      <div className="grid min-w-0 gap-2 text-xs sm:grid-cols-3">
+                        {[
+                          "components.json",
+                          "src/app/globals.css",
+                          "src/components/ai-elements/conversation.tsx",
+                        ].map((file) => (
+                          <div
+                            className="flex min-w-0 items-center gap-2 rounded-md border bg-muted/40 px-2 py-2 font-mono"
+                            key={file}
                           >
-                            {approvalState === "pending" ? (
-                              <ShieldCheckIcon className="size-3.5" />
-                            ) : (
-                              <CheckCircle2Icon className="size-3.5" />
-                            )}
-                            {approvalLabel}
-                          </Button>
-                        </div>
-                        <CodeBlock
-                          className="mt-3 border-[#262626] bg-[#070707]"
-                          code={
-                            approvalState === "pending"
-                              ? "$ npm run build\n\napproval required before running command"
-                              : TERMINAL_OUTPUT
-                          }
-                          language="bash"
-                        />
-                      </ToolContent>
-                    </Tool>
-
-                    <div className="rounded-md border border-[#262626] bg-[#101010] p-4">
-                      <div className="mb-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <BadgeCheckIcon className="size-4 text-emerald-400" />
-                          <p className="text-[13px] font-medium text-[#e8e8e8]">
-                            Final response
-                          </p>
-                        </div>
-                        <span className="rounded-full border border-[#303030] bg-[#141414] px-2 py-0.5 text-[11px] text-[#8a8a8a]">
-                          {isStreaming ? "streaming" : "complete"}
-                        </span>
+                            <FileCode2Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                            <span className="truncate">{file}</span>
+                          </div>
+                        ))}
                       </div>
-                      <MessageResponse
-                        className="prose prose-invert max-w-none text-[14px] leading-6 text-[#e7e7e7] prose-a:text-white prose-code:text-[#f0f0f0] prose-headings:text-white prose-li:marker:text-[#8a8a8a] prose-pre:border prose-pre:border-[#292929] prose-pre:bg-[#090909] prose-table:text-[13px] prose-th:border-[#303030] prose-td:border-[#303030]"
-                        isAnimating={isStreaming}
-                      >
-                        {streamedMarkdown}
-                      </MessageResponse>
-                    </div>
-                  </MessageContent>
-                </Message>
-              </ConversationContent>
-              <ConversationScrollButton className="border-[#303030] bg-[#171717] text-white hover:bg-[#222]" />
-            </Conversation>
+                    </ToolContent>
+                  </Tool>
 
-            <div className="shrink-0 border-[#262626] border-t bg-[#0d0d0d] p-3 sm:p-4">
-              <PromptInput
-                className="mx-auto max-w-4xl"
-                onSubmit={() => undefined}
-              >
-                <PromptInputTextarea
-                  className="min-h-20 text-[14px] text-[#ededed] placeholder:text-[#6f6f6f]"
-                  placeholder="Ask Codex to build, fix, or explain..."
-                />
-                <PromptInputFooter className="border-[#242424] border-t bg-[#101010]">
-                  <PromptInputTools>
-                    <PromptInputButton className="text-[#a7a7a7] hover:bg-[#1c1c1c] hover:text-white">
-                      <PaperclipIcon className="size-4" />
-                    </PromptInputButton>
-                    <PromptInputButton className="text-[#a7a7a7] hover:bg-[#1c1c1c] hover:text-white">
-                      <Layers2Icon className="size-4" />
-                      <span className="hidden sm:inline">Context</span>
-                    </PromptInputButton>
-                    <PromptInputSelect defaultValue="gpt-5.5-codex">
-                      <PromptInputSelectTrigger className="h-8 w-[146px] text-[#bdbdbd] hover:bg-[#1c1c1c]">
-                        <PromptInputSelectValue />
-                      </PromptInputSelectTrigger>
-                      <PromptInputSelectContent>
-                        <PromptInputSelectItem value="gpt-5.5-codex">
-                          gpt-5.5-codex
-                        </PromptInputSelectItem>
-                        <PromptInputSelectItem value="gpt-5.4">
-                          gpt-5.4
-                        </PromptInputSelectItem>
-                      </PromptInputSelectContent>
-                    </PromptInputSelect>
-                  </PromptInputTools>
-                  <PromptInputSubmit className="bg-[#ededed] text-[#080808] hover:bg-white">
-                    <SendHorizontalIcon className="size-4" />
-                  </PromptInputSubmit>
-                </PromptInputFooter>
-              </PromptInput>
-            </div>
+                  <Tool className="bg-card" defaultOpen={false}>
+                    <ToolHeader
+                      state="output-available"
+                      title="Patch layout"
+                      toolName="apply_patch"
+                      type="dynamic-tool"
+                    />
+                    <ToolContent className="border-t">
+                      <CodeBlock
+                        className="bg-background"
+                        code={DIFF_CODE}
+                        language="diff"
+                        showLineNumbers
+                      >
+                        <CodeBlockHeader>
+                          <CodeBlockTitle>
+                            <FileDiffIcon className="size-3.5" />
+                            <CodeBlockFilename>page.tsx.patch</CodeBlockFilename>
+                          </CodeBlockTitle>
+                          <CodeBlockCopyButton className="size-7" />
+                        </CodeBlockHeader>
+                      </CodeBlock>
+                    </ToolContent>
+                  </Tool>
+
+                  <Tool className="bg-card" defaultOpen>
+                    <ToolHeader
+                      state={toolStates[approvalState]}
+                      title="Run production build"
+                      toolName="shell"
+                      type="dynamic-tool"
+                    />
+                    <ToolContent className="border-t">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                          <SquareTerminalIcon className="size-4 shrink-0" />
+                          <code className="truncate rounded-md border bg-muted px-2 py-1">
+                            npm run build
+                          </code>
+                        </div>
+                        <Button
+                          className="h-7"
+                          onClick={cycleApproval}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          {approvalState === "pending" ? (
+                            <ShieldCheckIcon className="size-3.5 text-amber-600" />
+                          ) : (
+                            <CheckCircle2Icon className="size-3.5 text-emerald-600" />
+                          )}
+                          {approvalLabel}
+                        </Button>
+                      </div>
+                      <CodeBlock
+                        className="mt-3 bg-background"
+                        code={
+                          approvalState === "pending"
+                            ? "$ npm run build\n\napproval required before running command"
+                            : TERMINAL_OUTPUT
+                        }
+                        language="bash"
+                      />
+                    </ToolContent>
+                  </Tool>
+
+                  <div className="min-w-0 rounded-md border bg-card p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <BadgeCheckIcon className="size-4 shrink-0 text-emerald-600" />
+                        <p className="truncate text-sm font-medium">
+                          Final response
+                        </p>
+                      </div>
+                      <Badge variant="secondary">
+                        {isStreaming ? (
+                          <TimerResetIcon className="size-3 animate-spin" />
+                        ) : (
+                          <CheckCircle2Icon className="size-3 text-emerald-600" />
+                        )}
+                        {isStreaming ? "streaming" : "complete"}
+                      </Badge>
+                    </div>
+                    <MessageResponse
+                      className="prose prose-neutral max-w-none overflow-hidden text-sm leading-6 prose-headings:font-semibold prose-pre:overflow-hidden prose-table:table-fixed prose-table:text-xs prose-td:break-words prose-th:break-words [&_*]:max-w-full"
+                      isAnimating={isStreaming}
+                    >
+                      {streamedMarkdown}
+                    </MessageResponse>
+                  </div>
+                </MessageContent>
+              </Message>
+            </ConversationContent>
+            <ConversationScrollButton className="bg-background shadow-sm" />
+          </Conversation>
+
+          <div className="shrink-0 border-t bg-background p-3 sm:p-4">
+            <PromptInput className="mx-auto max-w-4xl" onSubmit={() => undefined}>
+              <PromptInputTextarea
+                className="max-h-24 min-h-16 text-sm"
+                placeholder="Ask Codex to build, fix, or explain..."
+              />
+              <PromptInputFooter className="border-t bg-card">
+                <PromptInputTools>
+                  <PromptInputButton tooltip="Attach file">
+                    <PaperclipIcon className="size-4" />
+                  </PromptInputButton>
+                  <PromptInputButton tooltip="Context">
+                    <Layers2Icon className="size-4" />
+                    <span className="hidden sm:inline">Context</span>
+                  </PromptInputButton>
+                  <PromptInputSelect defaultValue="gpt-5.5-codex">
+                    <PromptInputSelectTrigger className="h-8 w-[146px]">
+                      <PromptInputSelectValue />
+                    </PromptInputSelectTrigger>
+                    <PromptInputSelectContent>
+                      <PromptInputSelectItem value="gpt-5.5-codex">
+                        gpt-5.5-codex
+                      </PromptInputSelectItem>
+                      <PromptInputSelectItem value="gpt-5.4">
+                        gpt-5.4
+                      </PromptInputSelectItem>
+                    </PromptInputSelectContent>
+                  </PromptInputSelect>
+                </PromptInputTools>
+                <PromptInputSubmit>
+                  <SendHorizontalIcon className="size-4" />
+                </PromptInputSubmit>
+              </PromptInputFooter>
+            </PromptInput>
           </div>
-
-          <aside className="min-h-0 bg-[#0b0b0b] p-3 xl:block">
-            <Artifact className="h-full rounded-lg border-[#262626] bg-[#101010] shadow-none">
-              <ArtifactHeader className="border-[#262626] bg-[#141414] px-3 py-2.5">
-                <div className="min-w-0">
-                  <ArtifactTitle className="flex items-center gap-2 text-[#ededed]">
-                    <PanelRightIcon className="size-4 text-[#8a8a8a]" />
-                    Workspace
-                  </ArtifactTitle>
-                  <ArtifactDescription className="text-[12px] text-[#8a8a8a]">
-                    Files, patch preview, and command context
-                  </ArtifactDescription>
-                </div>
-                <ArtifactActions>
-                  <ArtifactAction
-                    className="text-[#9a9a9a] hover:bg-[#202020] hover:text-white"
-                    icon={CopyIcon}
-                    label="Copy"
-                  />
-                  <ArtifactAction
-                    className="text-[#9a9a9a] hover:bg-[#202020] hover:text-white"
-                    icon={Settings2Icon}
-                    label="Settings"
-                  />
-                </ArtifactActions>
-              </ArtifactHeader>
-              <ArtifactContent className="space-y-4 p-3">
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    ["files", "18"],
-                    ["edits", "+312"],
-                    ["tests", approvalState === "done" ? "pass" : "ready"],
-                  ].map(([label, value]) => (
-                    <div
-                      className="rounded-md border border-[#252525] bg-[#0b0b0b] px-2 py-2"
-                      key={label}
-                    >
-                      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#6f6f6f]">
-                        {label}
-                      </p>
-                      <p className="mt-1 text-[13px] text-[#ededed]">
-                        {value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <FileTree
-                  className="border-[#262626] bg-[#0b0b0b] text-[12px] text-[#d4d4d4]"
-                  defaultExpanded={new Set(["src", "src/app", "src/components"])}
-                  onSelect={setSelectedPath}
-                  selectedPath={selectedPath}
-                >
-                  <FileTreeFolder name="src" path="src">
-                    <FileTreeFolder name="app" path="src/app">
-                      <FileTreeFile name="page.tsx" path="src/app/page.tsx" />
-                      <FileTreeFile
-                        name="globals.css"
-                        path="src/app/globals.css"
-                      />
-                    </FileTreeFolder>
-                    <FileTreeFolder name="components" path="src/components">
-                      <FileTreeFile
-                        name="message.tsx"
-                        path="src/components/ai-elements/message.tsx"
-                      />
-                      <FileTreeFile
-                        name="prompt-input.tsx"
-                        path="src/components/ai-elements/prompt-input.tsx"
-                      />
-                    </FileTreeFolder>
-                  </FileTreeFolder>
-                  <FileTreeFile name="package.json" path="package.json" />
-                </FileTree>
-
-                <CodeBlock
-                  className="border-[#262626] bg-[#080808]"
-                  code={selectedPath.endsWith("page.tsx") ? DIFF_CODE : PAGE_SNIPPET}
-                  language={selectedPath.endsWith("page.tsx") ? "diff" : "tsx"}
-                  showLineNumbers
-                >
-                  <CodeBlockHeader className="border-[#252525] bg-[#151515]">
-                    <CodeBlockTitle>
-                      <Code2Icon className="size-3.5" />
-                      <CodeBlockFilename>{selectedPath}</CodeBlockFilename>
-                    </CodeBlockTitle>
-                    <CodeBlockCopyButton className="size-6 text-[#9a9a9a]" />
-                  </CodeBlockHeader>
-                </CodeBlock>
-
-                <div className="rounded-md border border-[#262626] bg-[#0b0b0b] p-3">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[12px] text-[#dcdcdc]">
-                      <ListChecksIcon className="size-4 text-[#8a8a8a]" />
-                      Agent queue
-                    </div>
-                    <span className="text-[11px] text-[#6f6f6f]">
-                      4 steps
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      ["Inspect component APIs", "done", CheckCircle2Icon],
-                      ["Patch chat layout", "done", CheckCircle2Icon],
-                      [
-                        "Await build approval",
-                        approvalState === "pending" ? "queued" : "done",
-                        approvalState === "pending" ? Clock3Icon : CheckCircle2Icon,
-                      ],
-                      [
-                        "Stream final summary",
-                        isStreaming ? "running" : "done",
-                        isStreaming ? TimerResetIcon : CheckCircle2Icon,
-                      ],
-                    ].map(([label, state, Icon]) => (
-                      <div
-                        className="flex items-center gap-2 text-[12px]"
-                        key={label as string}
-                      >
-                        <Icon
-                          className={[
-                            "size-3.5",
-                            state === "running"
-                              ? "animate-spin text-amber-300"
-                              : state === "queued"
-                                ? "text-amber-300"
-                                : "text-emerald-400",
-                          ].join(" ")}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-[#cfcfcf]">
-                          {label as string}
-                        </span>
-                        <ChevronRightIcon className="size-3 text-[#555]" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 text-[11px] text-[#a8a8a8]">
-                  {[
-                    [GitCommitHorizontalIcon, "1 commit staged"],
-                    [GitPullRequestArrowIcon, "PR draft ready"],
-                    [SplitIcon, "branch agent/chat-demo"],
-                    [ArchiveIcon, "no backend"],
-                    [BoxesIcon, "AI Elements"],
-                    [PlayIcon, "Streamdown replay"],
-                  ].map(([Icon, label]) => (
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full border border-[#262626] bg-[#111] px-2 py-1"
-                      key={label as string}
-                    >
-                      <Icon className="size-3" />
-                      {label as string}
-                    </span>
-                  ))}
-                </div>
-              </ArtifactContent>
-            </Artifact>
-          </aside>
         </div>
       </section>
     </main>
