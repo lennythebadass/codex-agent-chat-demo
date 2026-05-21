@@ -70,25 +70,48 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const STREAM_NOTE = `我把这版 Demo 收敛成一个可操作的 Codex 工作区：
+const STREAM_NOTE = `这轮我把中间 Chat 调整成更接近真实 Codex 会话的形态：上方是可折叠的工作过程，下方保留一段完整的最终回复，底部 composer 始终浮在视口内，不参与 transcript 滚动。
 
-- 左侧项目和会话都换成了通用演示文案，不再复刻参考图内容。
-- 顶部控制会打开右侧 Artifact 面板，并切换预览、编辑器、终端、说明和组件地图。
-- 工具调用默认只显示一行摘要，点击后才展开文件、日志和补丁细节。
-- 输入框悬浮在底部；页面不滚动，只有中间 transcript 滚动。
+### 交互结构
 
-\`\`\`ts
-const shell = {
-  viewport: "locked",
-  scrollOwner: "ConversationContent",
-  artifact: "optional right rail",
-};
+工作流标题行现在独立成一个开关。展开时可以看到从需求拆解、组件审计、滚动归属、Artifact 联动到构建验证的完整过程；收起时只留下最终答复，适合用户快速阅读结论。这个行为比把每个步骤单独折叠更接近实际使用：过程可以整体隐藏，最终结果不会消失。
+
+- 中间 transcript 使用 \`Conversation\` / \`ConversationContent\`，滚动类放在真实的 scroll container 上。
+- 工作过程使用 \`Task\` disclosure 保持低噪音，默认只展示一行摘要。
+- 最终回复使用 \`MessageResponse\` 渲染 markdown，包含列表、代码块和检查项。
+- 右侧 \`Artifact\` 仍然可以独立滚动，不会把页面 body 撑开。
+- 底部 \`PromptInput\` 仍然浮在渐隐层上，提交后会追加 mock follow-up。
+
+### 实现摘要
+
+本次重点不是改变整体视觉语言，而是修复中间区域“看起来像聊天，但实际没有足够内容和明确滚动归属”的问题。页面外层继续使用锁定视口：\`main\`、中间 section、右侧 Artifact rail 都是 \`overflow-hidden\` 的布局容器；真正允许滚动的只有 Conversation 内部由 use-stick-to-bottom 管理的元素。
+
+\`\`\`tsx
+<Conversation className="min-h-0 flex-1 overflow-hidden">
+  <ConversationContent
+    className="mx-auto w-full max-w-[880px] gap-0 px-6 pb-56 pt-5"
+    scrollClassName="h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
+  >
+    {/* workflow toggle, timeline, final answer */}
+  </ConversationContent>
+</Conversation>
 \`\`\`
 
-- [x] generic demo labels
-- [x] interactive Artifact panel
-- [x] expandable tool details
-- [x] replayable MessageResponse stream`;
+### 产品层面的取舍
+
+这版没有按参考图逐字复刻输入框、文案或步骤名，而是保留 Codex demo 自己的语气：项目名、会话名和过程描述都使用通用产品研发场景。用户打开页面后仍然能识别“左侧项目 / 中间会话 / 右侧产物 / 底部输入”的信息架构，但不会被截图中的具体业务文本绑住。
+
+工作过程默认展开，是为了让部署后的 demo 首屏下面确实有足够 transcript 内容，可以马上验证滚轮和触控板滚动。点击 “Worked for 21m 36s” 后，过程区会整体消失，最终回复仍然留在对话里，底部 reply box 也不会移动到滚动内容中。
+
+### 验证清单
+
+- [x] 中间 Chat 内容增加到 14 个以上步骤和一段长最终回复。
+- [x] Workflow 可以整体展开和收起。
+- [x] 收起 Workflow 后最终回复仍然可读。
+- [x] 输入框保持浮动，不进入 scroll content。
+- [x] Artifact 面板保留，并且右侧内容可独立滚动。
+- [x] AI Elements 标注仍然存在但保持低对比。
+- [x] 生产构建通过后，这个 demo 可以作为当前部署版本使用。`;
 
 type ArtifactMode = "preview" | "vscode" | "terminal" | "info" | "map";
 
@@ -210,6 +233,32 @@ const baseWorkSteps: WorkStep[] = [
     status: "complete",
   },
   {
+    id: "workflow-toggle",
+    text: "我把工作过程从普通说明行改成了可整体折叠的 workflow section。用户可以一键隐藏所有过程步骤，只保留最终回复。",
+    tool: "Added workflow disclosure state",
+    detail:
+      "workflowOpen 默认 true；标题行按钮使用 ChevronDown / ChevronRight 显示当前状态，并通过 aria-expanded 暴露交互语义。",
+    command: "const [workflowOpen, setWorkflowOpen] = useState(true);",
+    output: "Workflow timeline can be collapsed as a complete section.",
+    patch: "+ workflowOpen\n+ setWorkflowOpen((open) => !open)\n+ conditional workflow rendering",
+    files: ["src/app/page.tsx"],
+    icon: WorkflowIcon,
+    status: "complete",
+  },
+  {
+    id: "transcript-density",
+    text: "我把中间 transcript 扩成更真实的研发过程：不再只有几行状态，而是包含需求澄清、组件审计、布局修复、内容填充、交互验证和回归检查。",
+    tool: "Expanded realistic product/dev work log",
+    detail:
+      "工作日志保持通用中文产品研发语境，避免照搬截图里的业务文案，同时让滚动高度显著大于容器高度。",
+    command: "baseWorkSteps.length >= 14",
+    output: "Expanded transcript content now creates real vertical overflow.",
+    patch: "+ additional WorkStep rows\n+ longer detail/output/patch summaries",
+    files: ["src/app/page.tsx"],
+    icon: FileSearchIcon,
+    status: "complete",
+  },
+  {
     id: "stream-replay",
     text: "我保留流式回答，但加了 Replay stream 操作。点击会清空当前 markdown，然后重新按块写入 MessageResponse。",
     tool: "Implemented replayable stream",
@@ -243,6 +292,19 @@ const baseWorkSteps: WorkStep[] = [
     patch: "+ AI Elements map artifact tab",
     files: ["src/app/page.tsx"],
     icon: InfoIcon,
+    status: "complete",
+  },
+  {
+    id: "final-answer",
+    text: "最终回答现在是文章式总结，包含 bullet、inline code、代码块和验证清单。即使 workflow 收起，这段内容也会继续显示在会话主体里。",
+    tool: "Rewrote final MessageResponse content",
+    detail:
+      "STREAM_NOTE 扩展为长 markdown，覆盖交互结构、实现摘要、产品取舍和验证清单。",
+    command: "MessageResponse renders STREAM_NOTE",
+    output: "Final assistant response remains substantial and readable.",
+    patch: "+ long final response markdown\n+ code block\n+ verification checklist",
+    files: ["src/app/page.tsx"],
+    icon: BotIcon,
     status: "complete",
   },
   {
@@ -381,6 +443,7 @@ export default function Home() {
     "ready"
   );
   const [streamedMarkdown, setStreamedMarkdown] = useState("");
+  const [workflowOpen, setWorkflowOpen] = useState(true);
 
   const workSteps = useMemo(
     () => [...baseWorkSteps, ...dynamicSteps],
@@ -628,52 +691,68 @@ export default function Home() {
 
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-            <Conversation className="min-h-0 bg-[#090909]">
+            <Conversation className="h-full min-h-0 overflow-hidden bg-[#090909]">
               <ConversationContent
-                className="mx-auto w-full max-w-[880px] gap-0 px-6 pb-44 pt-5"
-                scrollClassName="overflow-y-auto overflow-x-hidden overscroll-contain"
+                className="mx-auto w-full max-w-[880px] gap-0 px-6 pb-56 pt-5"
+                scrollClassName="h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain"
               >
                 <div className="mb-8 flex justify-end">
                   <div className="max-w-[420px] rounded-2xl bg-[#202020] px-4 py-2 text-[14px] text-neutral-200 shadow-sm">
-                    把这个 Codex workspace demo 改得更像真的可操作界面，但别照抄参考图文字。
+                    中间对话现在太短而且不能滚；把工作过程做成可以整体收起的区域，底部输入框还是浮着。
                   </div>
                 </div>
 
-                <div className="mb-4 flex items-center justify-between gap-3 text-[13px] text-neutral-500">
-                  <div className="flex items-center gap-2">
-                    <span>Worked for 12m 15s</span>
-                    <ChevronDownIcon className="size-3.5" />
-                  </div>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <button
+                    aria-expanded={workflowOpen}
+                    className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-left text-[13px] text-neutral-500 transition hover:bg-white/[0.035] hover:text-neutral-300"
+                    onClick={() => setWorkflowOpen((open) => !open)}
+                    type="button"
+                  >
+                    {workflowOpen ? (
+                      <ChevronDownIcon className="size-3.5 shrink-0" />
+                    ) : (
+                      <ChevronRightIcon className="size-3.5 shrink-0" />
+                    )}
+                    <span>Worked for 21m 36s</span>
+                    <span className="hidden text-neutral-600 sm:inline">
+                      {workSteps.length} steps
+                    </span>
+                  </button>
                   <ElementBadge>AI Elements: Tool/Task style disclosure</ElementBadge>
                 </div>
                 <div className="mb-7 h-px bg-neutral-800/80" />
 
-                <div className="space-y-7">
-                  {workSteps.map((step) => (
-                    <WorkStepRow
-                      expanded={expandedStepIds.has(step.id)}
-                      key={step.id}
-                      onOpenChange={(open) => toggleStep(step.id, open)}
-                      step={step}
-                    />
-                  ))}
-                </div>
+                {workflowOpen ? (
+                  <>
+                    <div className="space-y-7">
+                      {workSteps.map((step) => (
+                        <WorkStepRow
+                          expanded={expandedStepIds.has(step.id)}
+                          key={step.id}
+                          onOpenChange={(open) => toggleStep(step.id, open)}
+                          step={step}
+                        />
+                      ))}
+                    </div>
 
-                <div className="mt-8 flex items-end gap-3">
-                  <PreviewThumb />
-                  <PreviewThumb compact />
-                  <Button
-                    className="mb-2 size-8 rounded-full border-neutral-800 bg-neutral-900 text-neutral-400 hover:bg-neutral-800"
-                    onClick={() => openArtifact("preview")}
-                    size="icon"
-                    type="button"
-                    variant="outline"
-                  >
-                    <ArrowDownIcon className="size-4" />
-                  </Button>
-                </div>
+                    <div className="mt-8 flex items-end gap-3">
+                      <PreviewThumb />
+                      <PreviewThumb compact />
+                      <Button
+                        className="mb-2 size-8 rounded-full border-neutral-800 bg-neutral-900 text-neutral-400 hover:bg-neutral-800"
+                        onClick={() => openArtifact("preview")}
+                        size="icon"
+                        type="button"
+                        variant="outline"
+                      >
+                        <ArrowDownIcon className="size-4" />
+                      </Button>
+                    </div>
+                  </>
+                ) : null}
 
-                <div className="mt-8 flex items-center justify-between gap-3">
+                <div className={workflowOpen ? "mt-8 flex items-center justify-between gap-3" : "mt-2 flex items-center justify-between gap-3"}>
                   <ElementBadge>
                     AI Elements: MessageResponse/Streamdown
                   </ElementBadge>
@@ -724,13 +803,11 @@ export default function Home() {
                   <PromptInputTools>
                     <PromptInputButton
                       className="text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-                      tooltip="Add context"
                     >
                       <PaperclipIcon className="size-4" />
                     </PromptInputButton>
                     <PromptInputButton
                       className="gap-1.5 text-amber-400 hover:bg-neutral-800 hover:text-amber-300"
-                      tooltip="Access mode"
                     >
                       <ShieldIcon className="size-4" />
                       <span>Full access</span>
@@ -753,7 +830,6 @@ export default function Home() {
                     </PromptInputSelect>
                     <PromptInputButton
                       className="text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
-                      tooltip="Voice"
                     >
                       <MicIcon className="size-4" />
                     </PromptInputButton>
