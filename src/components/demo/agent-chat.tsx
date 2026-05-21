@@ -90,6 +90,7 @@ export function AgentChat() {
 
   const replayStream = useCallback(() => {
     setStreamedMarkdown("");
+    setWorkflowOpen(true);
     setIsStreaming(true);
   }, []);
 
@@ -149,6 +150,7 @@ export function AgentChat() {
       if (index >= finalAssistantMarkdown.length) {
         window.clearInterval(interval);
         setIsStreaming(false);
+        setWorkflowOpen(false);
       }
     }, 24);
 
